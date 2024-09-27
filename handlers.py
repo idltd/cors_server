@@ -17,7 +17,7 @@ class BaseHandler(SimpleHTTPRequestHandler):
 
     def log_message(self, format, *args):
         if self.verbose:
-            super().log_message(format, *args)
+            logger.info(format % args)
 
     def end_headers(self):
         self.send_cors_headers()
@@ -29,28 +29,31 @@ class BaseHandler(SimpleHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Methods', ', '.join(ALLOWED_METHODS))
         self.send_header('Access-Control-Allow-Headers', ', '.join(ALLOWED_HEADERS))
 
+    def do_GET(self):
+        logger.debug(f"Received GET request: {self.path}")
+        super().do_GET()
+
 class LocalFileHandler(BaseHandler):
     def do_GET(self):
+        logger.debug(f"Handling local file request: {self.path}")
         path = self.path[1:] if self.path.startswith('/') else self.path
         if self.path.startswith('/proxy?url='):
             url = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)['url'][0]
             path = urllib.parse.urlparse(url).path
             path = path[1:] if path.startswith('/') else path
 
-        if self.verbose:
-            logger.debug(f"Serving local file: {path}")
+        logger.info(f"Serving local file: {path}")
         return SimpleHTTPRequestHandler.do_GET(self)
 
 class RemoteProxyHandler(BaseHandler):
     def do_GET(self):
+        logger.debug(f"Handling remote proxy request: {self.path}")
         url = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)['url'][0]
-        if self.verbose:
-            logger.debug(f"Proxying remote request to: {url}")
+        logger.info(f"Proxying remote request to: {url}")
 
         cached_content = self.cache.read_cache(url)
         if cached_content:
-            if self.verbose:
-                logger.debug(f"Serving cached content for: {url}")
+            logger.info(f"Serving cached content for: {url}")
             self.send_response(200)
             self.send_header('Content-Type', 'application/octet-stream')
             self.end_headers()
@@ -67,19 +70,18 @@ class RemoteProxyHandler(BaseHandler):
             self.wfile.write(content)
 
             self.cache.write_cache(url, content)
-            if self.verbose:
-                logger.debug(f"Successfully proxied and cached {len(content)} bytes for {url}")
+            logger.info(f"Successfully proxied and cached {len(content)} bytes for {url}")
         except Exception as e:
             logger.error(f"Error proxying request to {url}: {str(e)}")
             self.send_error(500, f"Error proxying request: {str(e)}")
 
     def fetch_url(self, url: str) -> Tuple[int, Dict[str, str], bytes]:
+        logger.debug(f"Fetching URL: {url}")
         parsed_url = urllib.parse.urlparse(url)
         origin = f"{parsed_url.scheme}://{parsed_url.netloc}"
         curl_command = ['curl', '-s', '-i', '-H', f'Origin: {origin}', url]
         
-        if self.verbose:
-            logger.debug(f"Executing curl command: {' '.join(curl_command)}")
+        logger.debug(f"Executing curl command: {' '.join(curl_command)}")
         result = subprocess.run(curl_command, capture_output=True, check=True)
         output = result.stdout.decode('utf-8', errors='ignore')
         
@@ -88,4 +90,5 @@ class RemoteProxyHandler(BaseHandler):
         status_code = int(status_line.split()[1])
         
         parsed_headers = [line.split(': ', 1) for line in header_lines if line]
+        logger.debug(f"Received response: status={status_code}, headers={parsed_headers}")
         return status_code, parsed_headers, content.encode('utf-8')

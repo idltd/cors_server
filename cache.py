@@ -3,8 +3,11 @@ import random
 import math
 from pathlib import Path
 from typing import Union
+import logging
 
 from config import CACHE_DIR, DEFAULT_CACHE_DURATION
+
+logger = logging.getLogger(__name__)
 
 class Cache:
     def __init__(self, cache_duration: int = DEFAULT_CACHE_DURATION):
@@ -27,9 +30,12 @@ class Cache:
     def read_cache(self, url: str) -> Union[bytes, None]:
         cache_file = self.get_cache_file(url)
         if not self.should_refetch(cache_file):
+            logger.debug(f"Cache hit for {url}")
             return cache_file.read_bytes()
+        logger.debug(f"Cache miss for {url}")
         return None
 
     def write_cache(self, url: str, content: bytes) -> None:
         cache_file = self.get_cache_file(url)
         cache_file.write_bytes(content)
+        logger.debug(f"Cached content for {url}")

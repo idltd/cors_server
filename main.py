@@ -1,12 +1,12 @@
 import argparse
 import logging
 
-from config import DEFAULT_PORT, DEFAULT_CACHE_DURATION, DEFAULT_VERBOSE, LOG_FORMAT, LOG_LEVEL
+from config import DEFAULT_PORT, DEFAULT_CACHE_DURATION, DEFAULT_VERBOSE, LOG_FORMAT
 from server import run_server
 
 def setup_logging(verbose):
-    level = logging.DEBUG if verbose else LOG_LEVEL
-    logging.basicConfig(format=LOG_FORMAT, level=level)
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(level=level, format=LOG_FORMAT)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
