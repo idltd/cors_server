@@ -4,6 +4,7 @@ from pathlib import Path
 # Server configuration
 DEFAULT_PORT = 8000
 DEFAULT_CACHE_DURATION = 3600  # 1 hour
+DEFAULT_VERBOSE = False
 
 # Cache configuration
 CACHE_DIR = Path('cache')

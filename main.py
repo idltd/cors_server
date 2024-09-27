@@ -1,11 +1,12 @@
 import argparse
 import logging
 
-from config import DEFAULT_PORT, DEFAULT_CACHE_DURATION, LOG_FORMAT, LOG_LEVEL
+from config import DEFAULT_PORT, DEFAULT_CACHE_DURATION, DEFAULT_VERBOSE, LOG_FORMAT, LOG_LEVEL
 from server import run_server
 
-def setup_logging():
-    logging.basicConfig(format=LOG_FORMAT, level=LOG_LEVEL)
+def setup_logging(verbose):
+    level = logging.DEBUG if verbose else LOG_LEVEL
+    logging.basicConfig(format=LOG_FORMAT, level=level)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -15,19 +16,21 @@ def parse_arguments():
         It's intended for local development only. Do not use in production.
         
         Usage example:
-        python main.py -p 8000 -c 3600
+        python main.py -p 8000 -c 3600 -v
         """
     )
     parser.add_argument('-p', '--port', type=int, default=DEFAULT_PORT,
                         help=f"Port to run the server on (default: {DEFAULT_PORT})")
     parser.add_argument('-c', '--cache-duration', type=int, default=DEFAULT_CACHE_DURATION,
                         help=f"Cache duration in seconds (default: {DEFAULT_CACHE_DURATION})")
+    parser.add_argument('-v', '--verbose', action='store_true', default=DEFAULT_VERBOSE,
+                        help="Enable verbose output")
     return parser.parse_args()
 
 def main():
-    setup_logging()
     args = parse_arguments()
-    run_server(args.port, args.cache_duration)
+    setup_logging(args.verbose)
+    run_server(args.port, args.cache_duration, args.verbose)
 
 if __name__ == '__main__':
     main()

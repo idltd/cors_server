@@ -12,7 +12,12 @@ logger = logging.getLogger(__name__)
 class BaseHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         self.cache = Cache(kwargs.pop('cache_duration', None))
+        self.verbose = kwargs.pop('verbose', False)
         super().__init__(*args, **kwargs)
+
+    def log_message(self, format, *args):
+        if self.verbose:
+            super().log_message(format, *args)
 
     def end_headers(self):
         self.send_cors_headers()
@@ -32,17 +37,20 @@ class LocalFileHandler(BaseHandler):
             path = urllib.parse.urlparse(url).path
             path = path[1:] if path.startswith('/') else path
 
-        logger.info(f"Serving local file: {path}")
+        if self.verbose:
+            logger.debug(f"Serving local file: {path}")
         return SimpleHTTPRequestHandler.do_GET(self)
 
 class RemoteProxyHandler(BaseHandler):
     def do_GET(self):
         url = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)['url'][0]
-        logger.info(f"Proxying remote request to: {url}")
+        if self.verbose:
+            logger.debug(f"Proxying remote request to: {url}")
 
         cached_content = self.cache.read_cache(url)
         if cached_content:
-            logger.info(f"Serving cached content for: {url}")
+            if self.verbose:
+                logger.debug(f"Serving cached content for: {url}")
             self.send_response(200)
             self.send_header('Content-Type', 'application/octet-stream')
             self.end_headers()
@@ -59,7 +67,8 @@ class RemoteProxyHandler(BaseHandler):
             self.wfile.write(content)
 
             self.cache.write_cache(url, content)
-            logger.info(f"Successfully proxied and cached {len(content)} bytes for {url}")
+            if self.verbose:
+                logger.debug(f"Successfully proxied and cached {len(content)} bytes for {url}")
         except Exception as e:
             logger.error(f"Error proxying request to {url}: {str(e)}")
             self.send_error(500, f"Error proxying request: {str(e)}")
@@ -69,7 +78,8 @@ class RemoteProxyHandler(BaseHandler):
         origin = f"{parsed_url.scheme}://{parsed_url.netloc}"
         curl_command = ['curl', '-s', '-i', '-H', f'Origin: {origin}', url]
         
-        logger.debug(f"Executing curl command: {' '.join(curl_command)}")
+        if self.verbose:
+            logger.debug(f"Executing curl command: {' '.join(curl_command)}")
         result = subprocess.run(curl_command, capture_output=True, check=True)
         output = result.stdout.decode('utf-8', errors='ignore')
         
