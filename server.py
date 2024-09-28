@@ -1,10 +1,9 @@
 import logging
 from http.server import HTTPServer
-import urllib.parse
 from typing import Type, Tuple, Any
 
 from config import DEFAULT_PORT
-from handlers import BaseHandler, LocalFileHandler, RemoteProxyHandler
+from handlers import BaseHandler
 
 logger = logging.getLogger(__name__)
 
@@ -18,27 +17,12 @@ class CORSProxyServer(HTTPServer):
 
     def finish_request(self, request: Any, client_address: Tuple[str, int]) -> None:
         try:
-            handler = self.RequestHandlerClass(request, client_address, self)
-            
-            if hasattr(handler, 'path'):
-                if self.verbose:
-                    logger.info(f"Processing request for path: {handler.path}")
-                if handler.path.startswith('/proxy'):
-                    RemoteProxyHandler(request, client_address, self, 
-                                       cache_duration=self.cache_duration, 
-                                       verbose=self.verbose, 
-                                       debug=self.debug)
-                else:
-                    LocalFileHandler(request, client_address, self, 
-                                     cache_duration=self.cache_duration, 
-                                     verbose=self.verbose, 
-                                     debug=self.debug)
-            else:
-                logger.warning("Handler does not have 'path' attribute. Using default BaseHandler.")
-                BaseHandler(request, client_address, self)
+            BaseHandler(request, client_address, self, 
+                        cache_duration=self.cache_duration, 
+                        verbose=self.verbose, 
+                        debug=self.debug)
         except Exception as e:
             logger.error(f"Error in finish_request: {str(e)}")
-            BaseHandler(request, client_address, self)
 
 def run_server(port: int = DEFAULT_PORT, cache_duration: int = None, 
                verbose: bool = False, debug: bool = False) -> None:

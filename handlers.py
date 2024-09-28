@@ -4,6 +4,10 @@ from http.server import SimpleHTTPRequestHandler
 import urllib.parse
 import subprocess
 from typing import Tuple, Dict
+import html
+import sys
+import io
+from pathlib import Path 
 
 from config import ALLOWED_ORIGINS, ALLOWED_METHODS, ALLOWED_HEADERS
 from cache import Cache
@@ -35,7 +39,6 @@ class BaseHandler(SimpleHTTPRequestHandler):
     def handle_local_request(self):
         if self.verbose:
             logger.info(f"Handling local file request: {self.path}")
-
         path = self.translate_path(self.path)
         if os.path.isdir(path):
             if self.verbose:
@@ -66,7 +69,7 @@ class BaseHandler(SimpleHTTPRequestHandler):
             self.send_error(404, "File not found")
             if self.verbose:
                 logger.warning(f"Local file not found: {path}")
-
+    
     def handle_proxy_request(self):
         if self.verbose:
             logger.info("Handling proxy request")
@@ -80,9 +83,17 @@ class BaseHandler(SimpleHTTPRequestHandler):
             return
 
         url = params['url'][0]
+        parsed_url = urllib.parse.urlparse(url)
+        
+        if not parsed_url.scheme:
+            # No protocol, treat as local file
+            if self.verbose:
+                logger.info(f"No protocol in URL, serving local file: {url}")
+            self.path = '/' + url  # Prepend '/' to make it a valid path
+            return self.handle_local_request()
+
         if self.verbose:
             logger.info(f"Proxying request to: {url}")
-
         cached_content = self.cache.read_cache(url)
         if cached_content:
             if self.verbose:
@@ -146,10 +157,10 @@ class BaseHandler(SimpleHTTPRequestHandler):
     def send_cors_headers(self):
         for origin in ALLOWED_ORIGINS:
             self.send_header('Access-Control-Allow-Origin', origin)
-        self.send_header('Access-Control-Allow-Methods', ', '.join(ALLOWED_METHODS))
-        self.send_header('Access-Control-Allow-Headers', ', '.join(ALLOWED_HEADERS))
+            self.send_header('Access-Control-Allow-Headers', ', '.join(ALLOWED_HEADERS))
 
     def list_directory(self, path):
+        path = Path(path)
         if self.verbose:
             logger.info(f"Listing directory: {path}")
         try:
@@ -162,7 +173,7 @@ class BaseHandler(SimpleHTTPRequestHandler):
         try:
             displaypath = urllib.parse.unquote(self.path, errors='surrogatepass')
         except UnicodeDecodeError:
-            displaypath = urllib.parse.unquote(path)
+            displaypath = urllib.parse.unquote(str(path))
         displaypath = html.escape(displaypath, quote=False)
         enc = sys.getfilesystemencoding()
         title = 'Directory listing for %s' % displaypath
@@ -193,7 +204,7 @@ class BaseHandler(SimpleHTTPRequestHandler):
         f.write(encoded)
         f.seek(0)
         self.send_response(200)
-        self.send_header("Content-type", "text/html; charset=%s" % enc)
+        self.send_header("Content-type", f"text/html; charset={enc}")
         self.send_header("Content-Length", str(len(encoded)))
         self.end_headers()
         return f
