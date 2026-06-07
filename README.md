@@ -12,3 +12,7 @@ options:
 </pre>
 This server enables CORS for specified origins and provides a proxy for remote requests. It's intended for local
 development only. Do not use in production.
+
+## Licence
+
+[AGPL-3.0-or-later](LICENSE) -- free to use, modify, and distribute. If you run this as a network service, you must make the source available to users.
